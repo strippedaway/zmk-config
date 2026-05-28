@@ -1,0 +1,75 @@
+name: Legacy build (ZMK pre-4.1, nice_nano)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: zmkfirmware/zmk-build-arm:stable
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shield: jorne_left
+            artifact: jorne_left-nice_nano-legacy
+          - shield: jorne_right
+            artifact: jorne_right-nice_nano-legacy
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pin ZMK to last pre-Zephyr-4.1 commit (2024-11-01) which still uses
+      # the plain "nice_nano" board identifier, matching bootloader v0.6.0.
+      # The main build.yaml uses nice_nano//zmk (Zephyr 4.1+).
+      - name: Write legacy west manifest
+        run: |
+          cat > config/west.yml << 'MANIFEST'
+          manifest:
+            remotes:
+              - name: zmkfirmware
+                url-base: https://github.com/zmkfirmware
+            projects:
+              - name: zmk
+                remote: zmkfirmware
+                revision: 249ecbc7e622c87780fe4b2ea2dade2444ce43bd
+                import: app/west.yml
+            self:
+              path: config
+          MANIFEST
+
+      - name: West Init
+        run: west init -l config
+
+      - name: West Update
+        run: west update
+
+      - name: West Zephyr export
+        run: west zephyr-export
+
+      - name: Build ${{ matrix.shield }}
+        run: |
+          west build \
+            --source-dir zmk/app \
+            --build-dir build \
+            --board nice_nano \
+            -- \
+            -DSHIELD="${{ matrix.shield }}" \
+            -DZMK_CONFIG="${GITHUB_WORKSPACE}/config"
+
+      - name: Rename artifact
+        run: |
+          mkdir --parents artifacts
+          if [ -f build/zephyr/zmk.uf2 ]; then
+            cp build/zephyr/zmk.uf2 "artifacts/${{ matrix.artifact }}.uf2"
+          else
+            echo "No UF2 produced - check build log"
+            exit 1
+          fi
+
+      - name: Upload ${{ matrix.shield }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/
