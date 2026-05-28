@@ -85,14 +85,15 @@ jobs:
         env:
           file_name_suffix: ""
         run: |
+          board_safe=$(echo "${{ matrix.board }}" | sed 's|//|_|g')
           if [ -n "${{ matrix.shield }}" ]
           then
             echo "extra_cmake_args=-DSHIELD=\"${{ matrix.shield }}\"" >> $GITHUB_ENV
-            echo "artifact_name=${{ matrix.shield }}-${{ matrix.board }}${{ matrix.file_name_suffix }}-zmk" >> $GITHUB_ENV
+            echo "artifact_name=${{ matrix.shield }}-${board_safe}${{ matrix.file_name_suffix }}-zmk" >> $GITHUB_ENV
             echo "display_name=${{ matrix.shield }} - ${{ matrix.board }}${{ matrix.file_name_suffix }}" >> $GITHUB_ENV
           else
             echo "extra_cmake_args=" >> $GITHUB_ENV
-            echo "artifact_name=${{ matrix.board }}${{ matrix.file_name_suffix }}-zmk" >> $GITHUB_ENV
+            echo "artifact_name=${board_safe}${{ matrix.file_name_suffix }}-zmk" >> $GITHUB_ENV
             echo "display_name=${{ matrix.board }}${{ matrix.file_name_suffix }}" >> $GITHUB_ENV
           fi
           echo "zephyr_version=${ZEPHYR_VERSION}" >> $GITHUB_ENV
